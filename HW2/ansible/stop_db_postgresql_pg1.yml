@@ -9,10 +9,8 @@
       systemd:
         name: postgresql
         state: stopped
-    - name: Mount disk-2
+    - name: Unmount disk-2
       become: yes
       mount:
         path: /mnt/pg_data
-        # src: /dev/vdb
-        # fstype: ext4
         state: absent

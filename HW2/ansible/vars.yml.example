@@ -1,4 +1,4 @@
 ---
-db_user: appuser
-db_password: appuser
-db_name: app
+postgres_root_user: root
+postgres_root_pass: sdfsdfsdfsjljkl
+db_name: hw1

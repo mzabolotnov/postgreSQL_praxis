@@ -1,0 +1,66 @@
+---
+- name: Mount disk2, set parameter data_directory = /mnt/pg_data/data/main
+  hosts: vm-group-2
+  become: yes
+  gather_facts: False
+
+  tasks:
+    - name: Mount disk-2
+      become: yes
+      mount:
+        path: /mnt/pg_data
+        src: /dev/vdb
+        fstype: ext4
+        state: mounted
+    
+    # - name: Create directory
+    #   become: yes
+    #   file:
+    #     path: /mnt/pg_data/data
+    #     state: directory
+    #     mode: '0770'
+    #     owner: postgres
+    #     group: postgres
+
+
+    - name: Stop Postgresql
+      systemd:
+        name: postgresql
+        state: stopped
+
+    # - name: moving DB
+    #   become: yes
+    #   become_user: postgres
+    #   shell: |
+    #        cp -a /var/lib/postgresql/14/main /mnt/pg_data/data/
+    #        rm -rf /var/lib/postgresql/14
+
+    - name: Set data_directory
+      lineinfile:
+        dest: /etc/postgresql/14/main/postgresql.conf
+        regexp: '^data_directory\s*='
+        line: "data_directory = '/mnt/pg_data/data/main'"
+        state: present
+      notify: Start Postgresql
+
+
+  handlers:
+    - name: Restart Postgresql
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: Start Postgresql
+      systemd:
+        name: postgresql
+        state: started
+
+    - name: Stop Postgresql
+      systemd:
+        name: postgresql
+        state: stopped
+
+    - name: Enable Postgresql
+      systemd:
+        name: postgresql
+        enabled: yes

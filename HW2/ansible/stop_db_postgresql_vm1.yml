@@ -1,0 +1,18 @@
+---
+- name: stop PostgreSQL vm1, unmount disk2
+  hosts: vm-group-1
+  become: yes
+  gather_facts: False
+
+  tasks:
+    - name: Stop Postgresql
+      systemd:
+        name: postgresql
+        state: stopped
+    - name: Mount disk-2
+      become: yes
+      mount:
+        path: /mnt/pg_data
+        # src: /dev/vdb
+        # fstype: ext4
+        state: absent

@@ -7,22 +7,12 @@
   vars_files:
     - vars.yml
 
-  # vars:
-  #   postgres_root_user: root
-  #   postgres_root_pass: GQt5MTyVPuf9vsVWoWDT9YCn
-  #   db_name: hw1
-    # allow_world_readable_tmpfiles: true
   tasks:
     - name: Update apt repo and cache on all Ubuntu boxes
       apt:
         update_cache: yes
         force_apt_get: yes
         cache_valid_time: 3600
-
-    # - name: Upgrade all packages on servers
-    #   apt:
-    #     upgrade: full
-    #     force_apt_get: yes
 
     - name: Install required packages
       apt:

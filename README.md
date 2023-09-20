@@ -1,6 +1,45 @@
 # postgres_praxis
-## HW1
+<details>
+<summary> <b>HW2</b></summary>
+Поднимаем инфраструктуру в YC c помощью terraform в составе двух ВМ. Ставим PostgreSQL на ВМ с использованием Ansible.
+Файл HW2/ansible/inventory заполняется автоматически данными из terraform. PostgreSQL - устанавливается на обе виртуальные машины pg-1 и pg-2
 
+```
+cd HW2/terraform;  
+./infra_up.sh
+```  
+
+переносим БД PostgreSQL на виртуальной машине pg-1 на дополнительный диск
+
+```
+cd HW2/ansible;
+ansible-playbook mv_db_postgresql_pg1.yml
+```
+останавливаем PostgreSQL и размонтируем disk-2 с нашей БД
+```
+ansible-playbook stop_db_postgresql_pg1.yml
+```
+далее надо изменить файл HW2/terraform/main.tf.  
+Hаходим блок кода, коментирум его у инстанса pg-1 и добавляем данный диск в инстанс pg-2  
+```
+secondary_disk {
+  disk_id = yandex_compute_disk.disk-2.id
+  device_name = "pgdata"
+}
+```
+Далее применяем инфраструктуру
+```
+cd HW2/terraform;  
+terraform apply
+```  
+монтируем disk-2 и запускаем PostgreSQL с БД на disk-2 на ВМ pg-2 
+```
+cd HW2/ansible;
+ansible-playbook start_db_postgresql_to_pg2.yml
+```
+</details>
+<details>
+<summary> <b>HW1</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform в составе одной ВМ. Ставим PostgreSQL на ВМ с использованием Ansible.  
 ```
 cd HW1/terraform;  
@@ -100,4 +139,5 @@ hw1=# select * from persons;
   8 | sergey     | sergeev  
  10 | sveta      | svetova  
 (4 rows)  
+</details>
 

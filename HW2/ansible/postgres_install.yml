@@ -1,0 +1,111 @@
+---
+- name: Install and set up Postgres 14 in Ubuntu 20.04
+  hosts: all
+  become: yes
+  gather_facts: False
+
+  vars_files:
+    - vars.yml
+
+  # vars:
+  #   postgres_root_user: root
+  #   postgres_root_pass: GQt5MTyVPuf9vsVWoWDT9YCn
+  #   db_name: hw1
+    # allow_world_readable_tmpfiles: true
+  tasks:
+    - name: Update apt repo and cache on all Ubuntu boxes
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+        cache_valid_time: 3600
+
+    # - name: Upgrade all packages on servers
+    #   apt:
+    #     upgrade: full
+    #     force_apt_get: yes
+
+    - name: Install required packages
+      apt:
+        update_cache: yes
+        name:
+          - wget
+          - python3-psycopg2
+          - acl
+        state: latest
+
+    - name: Set up Postgres 14 repo
+      shell: |
+        echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+      args:
+        warn: no
+
+    - name: Install postgresql
+      apt:
+        name: postgresql-14
+        update_cache: yes
+      notify:
+        - Enable Postgresql
+
+    - name: Ensure PostgreSQL is listening on *
+      lineinfile:
+        dest: /etc/postgresql/14/main/postgresql.conf
+        regexp: '^listen_addresses\s*='
+        line: "listen_addresses='*'"
+        state: present
+      notify: Restart Postgresql
+
+    - name: Add new configuration to "pg_hba.conf"
+      blockinfile:
+        dest: /etc/postgresql/14/main/pg_hba.conf
+        block: |
+          host    all             all             0.0.0.0/0                scram-sha-256
+          host    all             all             ::/0                     scram-sha-256
+          local   all             all                                md5
+      notify: Restart Postgresql
+
+    - name: Change peer identification to trust
+      shell: /bin/sed -i '/^local/s/peer/trust/' /etc/postgresql/14/main/pg_hba.conf
+      args:
+        warn: no
+      notify: Restart Postgresql
+
+    - name: "Create app database"
+      postgresql_db:
+        state: present
+        name: "{{ db_name }}"
+      become: yes
+      become_user: postgres
+
+    - name: Create a Superuser PostgreSQL database user
+      become: yes
+      become_user: postgres
+      postgresql_user:
+        name: '{{ postgres_root_user }}'
+        password: '{{ postgres_root_pass }}'
+        role_attr_flags: CREATEDB,SUPERUSER,CREATEROLE
+        encrypted: yes
+        state: present
+    
+
+  handlers:
+    - name: Restart Postgresql
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: Start Postgresql
+      systemd:
+        name: postgresql
+        state: started
+
+    - name: Stop Postgresql
+      systemd:
+        name: postgresql
+        state: stopped
+
+    - name: Enable Postgresql
+      systemd:
+        name: postgresql
+        enabled: yes
+

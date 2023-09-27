@@ -13,10 +13,10 @@ resource "yandex_compute_instance" "pg-1" {
     }
   }
 
-  # secondary_disk {
-  #   disk_id = yandex_compute_disk.disk-2.id
-  #   device_name = "pgdata"
-  # }
+  secondary_disk {
+    disk_id = yandex_compute_disk.disk-2.id
+    device_name = "pgdata"
+  }
 
   network_interface {
     subnet_id = var.subnet_id
@@ -42,16 +42,12 @@ resource "yandex_compute_instance" "pg-2" {
     }
   }
 
+
+
   # secondary_disk {
   #   disk_id = yandex_compute_disk.disk-2.id
   #   device_name = "pgdata"
   # }
-
-
-  secondary_disk {
-    disk_id = yandex_compute_disk.disk-2.id
-    device_name = "pgdata"
-  }
 
   network_interface {
     subnet_id = var.subnet_id

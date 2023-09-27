@@ -13,14 +13,6 @@
         fstype: ext4
         state: mounted
     
-    # - name: Create directory
-    #   become: yes
-    #   file:
-    #     path: /mnt/pg_data/data
-    #     state: directory
-    #     mode: '0770'
-    #     owner: postgres
-    #     group: postgres
 
 
     - name: Stop Postgresql
@@ -28,12 +20,6 @@
         name: postgresql
         state: stopped
 
-    # - name: moving DB
-    #   become: yes
-    #   become_user: postgres
-    #   shell: |
-    #        cp -a /var/lib/postgresql/14/main /mnt/pg_data/data/
-    #        rm -rf /var/lib/postgresql/14
 
     - name: Set data_directory
       lineinfile:

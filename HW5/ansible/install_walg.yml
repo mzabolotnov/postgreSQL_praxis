@@ -1,0 +1,101 @@
+---
+- name: install WAL-G
+  hosts: all
+  become: yes
+  gather_facts: False
+
+  tasks:
+    - name: download WAL-G
+      ansible.builtin.get_url:
+       url: https://github.com/wal-g/wal-g/releases/download/v2.0.1/wal-g-pg-ubuntu-20.04-amd64.tar.gz
+       dest: /home/ubuntu/wal-g-pg-ubuntu-20.04-amd64.tar.gz
+       mode: '0440'
+    - name: move WAL-G to /usr/local/bin/
+      shell: |
+           cd /home/ubuntu
+           tar -zxvf wal-g-pg-ubuntu-20.04-amd64.tar.gz && mv wal-g-pg-ubuntu-20.04-amd64 /usr/local/bin/wal-g
+    
+    - name: Create backups-folder
+      file:
+        path: /home/backups
+        state:  directory
+        mode: '0770'
+        owner: postgres
+        group: postgres
+
+    - name: Delete file /var/lib/postgresql/.walg.json if exists
+      file:
+        path: /var/lib/postgresql/.walg.json
+        state: absent
+        
+    - name: Create file /var/lib/postgresql/.walg.json
+      file:
+        path: /var/lib/postgresql/.walg.json
+        state: touch
+        mode: '0660'
+        owner: postgres
+        group: postgres
+    
+    - name: Add new configuration to ".walg.json"
+      become: yes
+      become_user: postgres
+      blockinfile:
+        dest: /var/lib/postgresql/.walg.json
+        marker: ""
+        block: |
+                {
+                  "WALG_FILE_PREFIX": "/home/backups",
+                  "WALG_COMPRESSION_METHOD": "brotli",
+                  "WALG_DELTA_MAX_STEPS": "5",
+                  "PGDATA": "/var/lib/postgresql/15/main",
+                  "PGHOST": "/var/run/postgresql/.s.PGSQL.5432"
+                }
+    - name: Create log-folder WAL-G
+      file:
+        path: /var/lib/postgresql/15/main/log
+        state:  directory
+        mode: '0770'
+        owner: postgres
+        group: postgres
+
+    - name: Create file /var/lib/postgresql/15/main/postgresql.auto.conf
+      file:
+        path: /var/lib/postgresql/15/main/postgresql.auto.conf
+        state: touch
+        mode: '0660'
+        owner: postgres
+        group: postgres
+    
+    - name: Add new configuration to "postgresql.auto.conf"
+      become: yes
+      become_user: postgres
+      blockinfile:
+        dest: /var/lib/postgresql/15/main/postgresql.auto.conf
+        block: |
+              wal_level=replica
+              archive_mode=on
+              archive_command='wal-g wal-push \"%p\" >> /var/lib/postgresql/15/main/log/archive_command.log 2>&1' 
+              archive_timeout=60 
+              restore_command='wal-g wal-fetch \"%f\" \"%p\" >> /var/lib/postgresql/15/main/log/restore_command.log 2>&1'
+      notify: Restart Postgresql
+      
+  handlers:
+    - name: Restart Postgresql
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: Start Postgresql
+      systemd:
+        name: postgresql
+        state: started
+
+    - name: Stop Postgresql
+      systemd:
+        name: postgresql
+        state: stopped
+
+    - name: Enable Postgresql
+      systemd:
+        name: postgresql
+        enabled: yes

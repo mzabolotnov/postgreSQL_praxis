@@ -1,5 +1,145 @@
 # postgres_praxis
 <details>
+<summary> <b>HW5. Бэкапы PostgreSQL, использование утилиты WAL-G</b></summary>
+Поднимаем инфраструктуру в YC c помощью terraform в одной ВМ(2 CPU,4Gb,30Gb(disk)). Ставим PostgreSQL на ВМ с использованием Ansible.
+
+```
+cd HW5/terraform;
+terraform apply;
+```
+Файл HW4/ansible/inventory заполняется автоматически данными из terraform.  
+Ставим PostgreSQL 15 на ВМ с использованием Ansible.  
+
+```
+cd ../ansible;
+ansible-playbook postgres_install.yml;
+```
+Для создания бэкапа с помощью WAL-G
+Устанавливаем WAL-G
+
+```
+ansible-playbook install_walg.yml;
+```
+зходим на ВМ по ssh. Все остальные действия выполняем из-под пользователя postgres
+
+Создаем таблицу в БД hw1 и заполняем ее данными
+```
+sudo su postgres
+psql hw1 -c "create table test(i int);"
+psql hw1 -c "insert into test values (10), (20), (30);"
+```
+Делаем backup
+```
+wal-g backup-push /var/lib/postgresql/15/main
+```
+меняем строку в таблице test
+```
+psql hw1 -c "UPDATE test SET i = 3 WHERE i = 30"
+```
+Далее
+```
+psql -p 5432 hw1 -c "select * from test;"
+```
+вывод
+```
+ i
+----
+ 10
+ 20
+  3
+(3 rows)
+```
+делаем еще раз бэкап
+```
+wal-g backup-push /var/lib/postgresql/15/main
+```
+создаем кластер main2
+```
+pg_createcluster 15 main2
+```
+вывод
+```
+Creating new PostgreSQL cluster 15/main2 ...
+/usr/lib/postgresql/15/bin/initdb -D /var/lib/postgresql/15/main2 --auth-local peer --auth-host scram-sha-256 --no-instructions
+The files belonging to this database system will be owned by user "postgres".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "en_US.UTF-8".
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory /var/lib/postgresql/15/main2 ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... posix
+selecting default max_connections ... 100
+selecting default shared_buffers ... 128MB
+selecting default time zone ... Etc/UTC
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+Warning: systemd does not know about the new cluster yet. Operations like "service postgresql start" will not handle it. To fix, run:
+  sudo systemctl daemon-reload
+Ver Cluster Port Status Owner    Data directory               Log file
+15  main2   5433 down   postgres /var/lib/postgresql/15/main2 /var/log/postgresql/postgresql-15-main2.log
+```
+очищаем директория с  БД кластера main2
+```
+rm -rf /var/lib/postgresql/15/main2
+```
+разворачиваем в диреторию backup полученный с кластера main
+```
+wal-g backup-fetch /var/lib/postgresql/15/main2 LATEST
+```
+вывод
+```
+INFO: 2023/10/04 09:31:50.723386 Selecting the latest backup...
+INFO: 2023/10/04 09:31:50.724298 LATEST backup is: 'base_000000010000000000000010_D_00000001000000000000000E'
+INFO: 2023/10/04 09:31:50.733043 Delta from base_00000001000000000000000E at LSN 0/E000028
+INFO: 2023/10/04 09:31:50.740465 Finished extraction of part_003.tar.br
+INFO: 2023/10/04 09:32:06.002500 Finished extraction of part_001.tar.br
+INFO: 2023/10/04 09:32:06.003451 Finished extraction of pg_control.tar.br
+INFO: 2023/10/04 09:32:06.003486
+Backup extraction complete.
+INFO: 2023/10/04 09:32:06.003518 base_00000001000000000000000E fetched. Upgrading from LSN 0/E000028 to LSN 0/10000028
+INFO: 2023/10/04 09:32:06.019171 Finished extraction of part_001.tar.br
+INFO: 2023/10/04 09:32:06.024261 Finished extraction of part_003.tar.br
+INFO: 2023/10/04 09:32:06.037785 Finished extraction of pg_control.tar.br
+INFO: 2023/10/04 09:32:06.037893
+Backup extraction complete.
+```
+создаем флаг восстановления
+```
+touch "/var/lib/postgresql/15/main2/recovery.signal"
+```
+и стартуем кластер main2
+```
+pg_ctlcluster 15 main2 start
+```
+вывод
+```
+Warning: the cluster will not be running as a systemd service. Consider using systemctl:
+  sudo systemctl start postgresql@15-main2
+```
+select таблицы test
+```
+psql -p 5433 hw1 -c "select * from test;"
+```
+```
+ i
+----
+ 10
+ 20
+  3
+(3 rows)
+```
+Вывод - восстановление из бэкапа успешно проведено
+
+</details>
+
+<details>
 <summary> <b>HW4. Оптимизация PostgreSQL</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform в одной ВМ(2 CPU,4Gb). Ставим PostgreSQL на ВМ с использованием Ansible.
 

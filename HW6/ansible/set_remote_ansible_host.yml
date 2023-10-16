@@ -62,7 +62,7 @@
     
     - name: Copy inventory file
       ansible.builtin.copy:
-         src: ./postgresql_cluster/inventory
+         src: ./patroni_cluster/inventory
          dest: /home/ubuntu/postgresql_cluster/inventory
     
     - name: Copy ssh-key to remote host
@@ -72,7 +72,7 @@
 
     - name: Copy config-file postgres-cluster to remote hodt
       ansible.builtin.copy:
-         src: ./postgresql_cluster/vars/main.yml
+         src: ./patroni_cluster/vars/main.yml
          dest: /home/ubuntu/postgresql_cluster/vars/main.yml
     
     # - name: Set psql (edit file ~/.)

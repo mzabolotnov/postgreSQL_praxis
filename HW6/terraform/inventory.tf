@@ -7,7 +7,7 @@ resource "local_file" "inventory_patroni" {
      int_ip_vm3 = yandex_compute_instance.pg-3.network_interface.0.ip_address
     }
   )
-  filename = "../ansible/postgresql_cluster/inventory"
+  filename = "../ansible/patroni_cluster/inventory"
 }
 resource "local_file" "inventory_local" {
   content = templatefile("./templates/inventory_local.tpl",

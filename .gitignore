@@ -1,1 +1,3 @@
 sav/pg_install.yml
+HW6/ansible/inventory
+HW6/ansible/patroni_cluster/inventory

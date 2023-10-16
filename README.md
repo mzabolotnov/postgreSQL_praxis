@@ -1,5 +1,69 @@
 # postgres_praxis
 <details>
+<summary> <b>HW6. Разворачивание кластера Patroni в Yandex Cloud с использованием Ansible</b></summary>
+Поднимаем инфраструктуру в YC c помощью terraform состоящую четырех узлов. ВМ(2 CPU,4Gb,10Gb(disk)).
+Три из которых будут использоваться для поднятия кластера Patroni, etcd-кластера и HAProxy. Одна ВМ используется для разворачивания на ней Ansible. Также поднимается Load Balancer с целевой группой хостов, которыми являются ноды с HAProxy, в нашем случае это ноды Patroni-кластера. Инфраструктура подобна приведенной на рисунке, только VIP заменяем IP Load Balancer
+![PostgreSQL High-Availability with HAProxy Load Balancing](https://github.com/vitabaks/postgresql_cluster/blob/master/images/TypeA.png?raw=true)
+
+```
+cd HW6/terraform;
+terraform apply;
+```
+И так имеем
+```
+terraform show;
+```
+Видим наши хосты
+```
+...
+Outputs:
+
+external_ip_address_vm_0 = "158.160.16.113"
+external_ip_address_vm_1 = "158.160.25.200"
+external_ip_address_vm_2 = "84.201.176.85"
+external_ip_address_vm_3 = "158.160.25.155"
+internal_ip_address_vm_0 = "10.129.0.16"
+internal_ip_address_vm_1 = "10.129.0.13"
+internal_ip_address_vm_2 = "10.129.0.30"
+internal_ip_address_vm_3 = "10.129.0.19"
+
+```
+
+Файл HW6/ansible/inventory заполняется автоматически данными из terraform.  
+Далее настраиваем хост с Ansible, который находится в той же подсети, что и будущие ноды кластера.  
+Настройки кластера патрони находятся здесь HW6/ansible/postgresql_cluster. HW6/ansible/postgresql_cluster/inventory - инвентори-файл, заполненный автоматически данными Terraform. HW6/ansible/postgresql_cluster/vars/main.yml - параметры настройки кластера. Patroni-кластер будем разворачивать изпользуя плейбук репозитория https://github.com/vitabaks/postgresql_cluster.git. Данный репорий будет склонирован на хосте с Ansible, а вот инвентори-файл и файл параметров будут скопированы из папки HW6/ansible/postgresql_cluster
+```
+cd ../ansible;
+ansible-playbook set_remote_ansible_host.yml;
+```
+Коннектимся ssh на хост с Ansible и там уже запускаем следующие команды.
+
+```
+cd postgresql_cluster/;
+ansible-playbook deploy_pgcluster.yml;
+```
+Заходим на один из хостов кластера Patroni и вводим команду
+```
+ubuntu@pgnode01:~$ sudo patronictl -c /etc/patroni/patroni.yml list
+```
+
+```
+2023-10-16 07:25:43,840 - WARNING - postgresql parameter max_prepared_transactions=0 failed validation, defaulting to 0
++ Cluster: postgres-cluster-type-a +-----------+----+-----------+
+| Member   | Host        | Role    | State     | TL | Lag in MB |
++----------+-------------+---------+-----------+----+-----------+
+| pgnode01 | 10.129.0.13 | Leader  | running   |  3 |           |
+| pgnode02 | 10.129.0.30 | Replica | streaming |  3 |         0 |
+| pgnode03 | 10.129.0.19 | Replica | streaming |  3 |         0 |
++----------+-------------+---------+-----------+----+-----------+
+
+```
+Вывод - кластер поднялся.  
+Если посмотреть в консоли YC Load Balancer, то мы увидим следующую картину
+![](pic/LB-Patroni.png)
+
+</details>
+<details>
 <summary> <b>HW5. Бэкапы PostgreSQL, использование утилиты WAL-G</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform в одной ВМ(2 CPU,4Gb,30Gb(disk)). Ставим PostgreSQL на ВМ с использованием Ansible.
 

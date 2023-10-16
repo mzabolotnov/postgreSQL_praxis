@@ -1,0 +1,84 @@
+---
+- name: Install Ansible and client Postgres 15 in Ubuntu 22.04
+  hosts: all
+  become: yes
+  gather_facts: False
+
+
+  tasks:
+    - name: Kernel hold
+      ansible.builtin.dpkg_selections:
+        name: linux-image-5.15.0-70-generic
+        selection: hold
+    - name: Update apt repo and cache on all Ubuntu boxes
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+        cache_valid_time: 3600
+
+    # - name: Upgrade all packages on servers
+    #   apt:
+    #     upgrade: full
+    #     force_apt_get: yes
+
+    - name: Install required packages
+      apt:
+        update_cache: yes
+        name:
+          - wget
+          - python3-psycopg2
+          - acl
+          - atop
+          - pgtop
+          - unzip
+          - python3-pip
+          - sshpass
+          - git
+
+        state: latest
+
+    - name: Install ansible python package
+      ansible.builtin.pip:
+        name: ansible
+
+    - name: Set up Postgres 15 repo
+      shell: |
+        echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+      args:
+        warn: no
+
+    - name: Install postgresql
+      apt:
+        name: postgresql-client-15
+        update_cache: yes
+
+    - name: Just ensuring the repo checkout exists
+      become: no
+      ansible.builtin.git:
+        repo: 'https://github.com/vitabaks/postgresql_cluster.git'
+        dest: /home/ubuntu/postgresql_cluster
+        update: no
+    
+    - name: Copy inventory file
+      ansible.builtin.copy:
+         src: ./postgresql_cluster/inventory
+         dest: /home/ubuntu/postgresql_cluster/inventory
+    
+    - name: Copy ssh-key to remote host
+      ansible.builtin.copy:
+         src: ~/.ssh/appuser
+         dest: /home/ubuntu/.ssh/
+
+    - name: Copy config-file postgres-cluster to remote hodt
+      ansible.builtin.copy:
+         src: ./postgresql_cluster/vars/main.yml
+         dest: /home/ubuntu/postgresql_cluster/vars/main.yml
+    
+    # - name: Set psql (edit file ~/.)
+    #   become: no
+    #   shell: |
+    #     echo "\set PROMPT1 '%M %n@%/%R%# '" >> ~/.psqlrc
+    #   args:
+    #     warn: no
+

@@ -1,0 +1,11 @@
+cloud_id = "fhdsfhfkfdkfjsdkfhdk"
+folder_id = "dfhskfjkfsjdfljwoiow"
+zone = "ru-central1-a"
+image_id = "djfkjdsfjsdfkljlsdjl"
+public_key_path = "~/key.pub"
+subnet_id = "dsfhdkfhskdfhskfhksd"
+service_account_key_file = "~/key.json"
+privat_key_path = "~/key"
+subnet_id = "e2l1245hbvp66vo0o8m3"
+image_id_add = "fd87hocdm23tosg6onpg"
+

@@ -1,0 +1,58 @@
+
+resource "yandex_compute_instance" "pg-1" {
+  name = "pg1"
+
+  resources {
+    cores  = 2
+    memory = 4
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = var.image_id
+      size = "150"
+    }
+  }
+
+
+  network_interface {
+    subnet_id = var.subnet_id
+    nat       = true
+  }
+
+  metadata = {
+    ssh-keys = "ubuntu:${file(var.public_key_path)}"
+  }
+}
+resource "yandex_compute_instance" "ch-1" {
+  name = "ch1"
+
+  resources {
+    cores  = 2
+    memory = 4
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = "fd87gocdmk3tosg6onpg"
+      size = "150"
+    }
+  }
+
+
+  network_interface {
+    subnet_id = var.subnet_id
+    nat       = true
+  }
+
+  metadata = {
+    ssh-keys = "debian:${file(var.public_key_path)}"
+  }
+}
+
+
+
+
+
+
+

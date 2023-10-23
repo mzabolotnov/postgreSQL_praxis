@@ -1,5 +1,121 @@
 # postgres_praxis
 <details>
+<summary> <b>HW8. Работа с большим объемом реальных данных</b></summary>
+Поднимаем инфраструктуру в YC c помощью terraform состоящую двух узлов. ВМ(2 CPU,4Gb,150Gb(disk)).  
+Одна из которых будут использоваться для поднятия кластера Postgresql], другая - для ClickHouse. Одна ВМ используется для разворачивания на ней Ansible. Также поднимается Load Balancer с целевой группой хостов, которыми являются ноды с HAProxy, в нашем случае это ноды Patroni-кластера. Инфраструктура подобна приведенной здесь https://github.com/vitabaks/postgresql_cluster/blob/master/images/TypeA.png, только VIP заменяем IP Load Balancer
+
+```
+cd HW8/terraform;
+terraform apply;
+```
+
+
+Файл HW8/ansible/inventory заполняется автоматически данными из terraform.  
+Устанавливаем Postgresql
+```
+cd ../ansible;
+ansible-playbook postgres_install.yml;
+```
+Устанавливаем ClickHouse. Для этой цели используем роль 
+```
+ git clone https://github.com/idealista/clickhouse_role.git
+```
+И далее
+
+```
+ansible-playbook ch_install.yml
+```
+Для примера загрузки будем использовать dataset "UK Property Price official data 1995-202304" c https://www.kaggle.com/  
+Создаем таблицу в Postgresql
+```
+CREATE UNLOGGED TABLE public.uk_price (
+    transaction_unique_identifier character(50),
+    price character varying(50),
+    date_of_transfer timestamp without time zone,
+    postcode character varying(10),
+    property_type character varying(10),
+    "Old/New" character varying(10),
+    duration character varying(10),
+    paon character varying(100),
+    saon character varying(50),
+    street character varying(100),
+    locality character varying(50),
+    "Town/City" character varying(50),
+    district character varying(50),
+    county character varying(50),
+    ppdcategory_type character varying(10),
+    record_status character varying(10)
+);
+```
+Загружаем данные в Postgresql
+```
+psql -d hw1 -c "\COPY uk_price from '/var/lib/postgresql/202304.csv' with CSV DELIMITER ','"
+```
+Делаем select count(*)
+```
+hw1=# select count(*) from  uk_price where property_type='S';
+  count
+---------
+ 7736105
+(1 row)
+
+Time: 210086.084 ms (03:30.086)
+```
+Время исполнения запроса 210086.084 ms  
+Проделываем тоже самое  с ClickHouse. Подключаемся ssh к хосту.
+```
+clickhouse-client;
+
+```
+Создаем таблицу. 
+```
+CREATE TABLE uk_price (
+    transaction_unique_identifier character(50),
+    price character varying(50),
+    date_of_transfer character varying(15),
+    postcode character varying(10),
+    property_type character varying(10),
+    "Old/New" character varying(10),
+    duration character varying(10),
+    paon character varying(100),
+    saon character varying(50),
+    street character varying(100),
+    locality character varying(50),
+    "Town/City" character varying(50),
+    district character varying(50),
+    county character varying(50),
+    ppdcategory_type character varying(10),
+    record_status character varying(10)
+)
+ENGINE = MergeTree
+ORDER BY tuple(date_of_transfer);
+```
+Загружаем данные. Вводим команду.
+```
+clickhouse-client -q "INSERT INTO default.uk_price FORMAT CSV" < 202304.csv
+```
+И делаем select
+```
+epdcdaaim05plkvu2paj.auto.internal :) select count(*) from  default.uk_price where property_type='S'
+
+SELECT count(*)
+FROM default.uk_price
+WHERE property_type = 'S'
+
+Query id: 5a4677fe-fa9a-4ffe-9721-fbc5c3d06264
+
+┌─count()─┐
+│ 7736105 │
+└─────────┘
+
+1 row in set. Elapsed: 0.889 sec. Processed 28.28 million rows, 282.76 MB (31.79 million rows/s., 317.94 MB/s.)
+```
+Видим время исполнения запроса 889ms. 
+  
+Вывод в Postgresql более чем на два порядка дольше выполняется данный запрос.
+
+</details>
+<details>
 <summary> <b>HW6. Деплой кластера Patroni в Yandex Cloud с использованием Ansible</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую четырех узлов. ВМ(2 CPU,4Gb,10Gb(disk)).
 Три из которых будут использоваться для поднятия кластера Patroni, etcd-кластера и HAProxy. Одна ВМ используется для разворачивания на ней Ansible. Также поднимается Load Balancer с целевой группой хостов, которыми являются ноды с HAProxy, в нашем случае это ноды Patroni-кластера. Инфраструктура подобна приведенной здесь https://github.com/vitabaks/postgresql_cluster/blob/master/images/TypeA.png, только VIP заменяем IP Load Balancer

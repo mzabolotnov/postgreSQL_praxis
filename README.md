@@ -1,5 +1,82 @@
 # postgres_praxis
 <details>
+<summary> <b>HW9. Deploy кластера Patroni в Kubernetes</b></summary>
+Поднимаем инфраструктуру в YC c помощью terraform состоящую из кластера Kubernetes  (2 ноды по 2 CPU,8Gb,50Gb).
+
+```
+cd HW9/terraform
+terraform apply
+```
+Подключаемся к кластеру Kubernetes
+
+```
+yc managed-kubernetes cluster get-credentials --id <ID - кластера в YC> --external
+```
+клонируем репозиторий
+```
+git clone https://github.com/zalando/postgres-operator
+```
+и устанавливаем postgres-operator в наш кластер
+```
+cd ./postgres-operator
+helm install postgres-operator ./charts/postgres-operator
+```
+Устанавливаем UI
+```
+helm install postgres-operator-ui ./charts/postgres-operator-ui
+```
+для работы с кластером Kubernetes я использую утилиту K9S  
+Делаем port-forward с сервиса postgres-operator-ui на localhost:8081. Заходим браузером на http://localhost:8081 и создвем кластер Patroni, состоящий из мастера и реплики и pooler-ов. 
+Попробовал также запустить встроеный в оператор LoadBalanser, он запустился, но внешний адрес получить не может от YC, надо разбираться. Как временный костыль создал два ресурса типа service (LoadBalancer) с описанием HW9/k8s/loadbalancer-master.yml и HW9/k8s/loadbalanser-replica.yml. Первый из них будет ловить трафик на полученном внешнем IP на порту 5000 и пересылать на pooler мастера, второй - на порту 5001 - pooler реплики.  
+В итоге получили следующую структуру нашего Patroni, развернутого в Kubernetes YC  
+![](pic/k8s_patroni_services.png)
+Пароль пользователя postgres находится в ресурсе secret кубера. Можно посмотреть его в утилите k9s, а можно воспользоваться командой
+```
+ export PGPASSWORD=$(kubectl get secret postgres.postgres-patroni.credentials.postgresql.acid.zalan.do -o 'jsonpath={.data.password}' | base64 -d)
+ export PGSSLMODE=require
+``` 
+И далее пробуем подключиться на выданные LoadBalanser внешние IP на порт 5000 
+```
+psql -U postgres -h 84.201.177.227 -p 5000
+psql (12.16 (Ubuntu 12.16-0ubuntu0.20.04.1), server 15.2 (Ubuntu 15.2-1.pgdg22.04+1))
+WARNING: psql major version 12, server major version 15.
+         Some psql features might not work.
+SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, bits: 256, compression: off)
+Type "help" for help.
+
+postgres=# \dt
+            List of relations
+ Schema |     Name     | Type  |  Owner
+--------+--------------+-------+----------
+ public | postgres_log | table | postgres
+(1 row)
+
+postgres=# create table int1 (i int);
+CREATE TABLE
+```
+на порт 5001
+```
+ psql -U postgres -h 51.250.20.2 -p 5001
+psql (12.16 (Ubuntu 12.16-0ubuntu0.20.04.1), server 15.2 (Ubuntu 15.2-1.pgdg22.04+1))
+WARNING: psql major version 12, server major version 15.
+         Some psql features might not work.
+SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, bits: 256, compression: off)
+Type "help" for help.
+
+postgres=# \dt
+            List of relations
+ Schema |     Name     | Type  |  Owner
+--------+--------------+-------+----------
+ public | int1         | table | postgres
+ public | postgres_log | table | postgres
+(2 rows)
+
+postgres=# create table int2 (i int);
+ERROR:  cannot execute CREATE TABLE in a read-only transaction
+```
+Кластер работает.
+</details>
+<details>
 <summary> <b>HW8. Работа с большим объемом реальных данных</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую двух узлов. ВМ(2 CPU,4Gb,150Gb(disk)).  
 Одна из которых будут использоваться для поднятия кластера Postgresql], другая - для ClickHouse. Одна ВМ используется для разворачивания на ней Ansible. Также поднимается Load Balancer с целевой группой хостов, которыми являются ноды с HAProxy, в нашем случае это ноды Patroni-кластера. Инфраструктура подобна приведенной здесь https://github.com/vitabaks/postgresql_cluster/blob/master/images/TypeA.png, только VIP заменяем IP Load Balancer

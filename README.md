@@ -193,6 +193,23 @@ Query id: 5a4677fe-fa9a-4ffe-9721-fbc5c3d06264
 
 </details>
 <details>
+<summary> <b>HW7. Разворачиваем кластер Postgresql в minikube</b></summary>
+
+Скачиваем репозиторий
+```
+git clone https://github.com/zalando/postgres-operator.git
+cd postgres-operator
+```
+Поднимаем одной командой состоящий из одного инстанса кластер Postgresql в minikube 
+
+```
+./run_operator_locally.sh
+```
+В итоге получам
+![](pic/postgres_minikube.png)
+
+</details>
+<details>
 <summary> <b>HW6. Деплой кластера Patroni в Yandex Cloud с использованием Ansible</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую четырех узлов. ВМ(2 CPU,4Gb,10Gb(disk)).
 Три из которых будут использоваться для поднятия кластера Patroni, etcd-кластера и HAProxy. Одна ВМ используется для разворачивания на ней Ansible. Также поднимается Load Balancer с целевой группой хостов, которыми являются ноды с HAProxy, в нашем случае это ноды Patroni-кластера. Инфраструктура подобна приведенной здесь https://github.com/vitabaks/postgresql_cluster/blob/master/images/TypeA.png, только VIP заменяем IP Load Balancer

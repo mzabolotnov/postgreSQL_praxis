@@ -1,0 +1,27 @@
+---
+- name: Run Postgresql in Docker
+  hosts: vm_group_1
+  become: no
+  gather_facts: False
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Create directory /home/ubuntu/postgresql_data
+      file:
+        path: /home/ubuntu/postgresql_data
+        state: directory
+    - name: Run Postgresql
+      community.docker.docker_container:
+        name: pg1
+        image: postgres
+        state: started
+        env:
+          POSTGRES_PASSWORD: '{{ postgres_root_pass }}'
+        ports:
+          "5432:5432"
+        volumes:
+          - /home/ubuntu/postgresql_data:/var/lib/postgresql/data
+
+

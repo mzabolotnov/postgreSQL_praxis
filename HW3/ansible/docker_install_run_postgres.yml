@@ -1,0 +1,5 @@
+- hosts: vm_group_1
+  become: yes
+  roles:
+    - geerlingguy.docker
+- import_playbook: postgres_start_docker.yml

@@ -79,14 +79,12 @@ ERROR:  cannot execute CREATE TABLE in a read-only transaction
 <details>
 <summary> <b>HW8. Работа с большим объемом реальных данных</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую двух узлов. ВМ(2 CPU,4Gb,150Gb(disk)).  
-Одна из которых будут использоваться для поднятия кластера Postgresql], другая - для ClickHouse. Одна ВМ используется для разворачивания на ней Ansible. Также поднимается Load Balancer с целевой группой хостов, которыми являются ноды с HAProxy, в нашем случае это ноды Patroni-кластера. Инфраструктура подобна приведенной здесь https://github.com/vitabaks/postgresql_cluster/blob/master/images/TypeA.png, только VIP заменяем IP Load Balancer
+Одна из которых будут использоваться для поднятия кластера Postgresql], другая - для ClickHouse.
 
 ```
 cd HW8/terraform;
 terraform apply;
 ```
-
-
 Файл HW8/ansible/inventory заполняется автоматически данными из terraform.  
 Устанавливаем Postgresql
 ```
@@ -474,6 +472,29 @@ tps = 1904.349851 (without initial connection time)
 ```
 
 Настройки PostgreSQL оптимальны под данный стандартный тест.
+</details>
+<details>
+<summary> <b>HW3. Деплой Postgresql сервера в Docker</b></summary>
+Поднимаем инфраструктуру в YC c помощью terraform, состоящую из одного узла (2 CPU,4Gb,10Gb).  
+
+```
+cd HW3/terraform;
+terraform apply;
+```
+Файл HW3/ansible/inventory заполняется автоматически данными из terraform.  
+Устанавливаем, используя Ansible role, docker на ВМ, запускаем контейнер с Postgresql, cоздаем директорию /home/ubuntu/postgresql_data, которую будем использовать как volume контейнера, прокидываем порт 5432 на хост. Пароль от пользователя БД postgres хранится в файле HW3/ansible/vars.yml
+```
+cd ../ansible
+ansible-galaxy collection install community.docker
+ansible-galaxy role install geerlingguy.docker
+ansible-playbook docker_install_run_postgres.yml -v
+```
+Если потом удалить контейнер Postgres с ВМ, а потом заного запустить 
+```
+ansible-playbook docker_install_run_postgres.yml -v
+```
+То данные сохранятся
+
 </details>
 
 <details>

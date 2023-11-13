@@ -1,5 +1,111 @@
 # postgres_praxis
 <details>
+<summary> <b>HW10. Деплой кластера Cockroachdb  в Menaged Service for Kubernetes Yandex Cloud</b></summary>
+Поднимаем инфраструктуру в YC c помощью terraform состоящую кластера Kubernetes (3 ноды).
+
+```
+cd HW10/terraform;
+terraform apply;
+```
+Подключаемся к кластеру
+```
+ yc managed-kubernetes cluster  get-credentials $(yc managed-kubernetes cluster list | sed '4!d' | awk '{print $2}')   --external --force
+```
+Добавляем репозторий Helm
+```
+helm repo add cockroachdb https://charts.cockroachdb.com/
+helm repo update
+```
+скачиваем файл с параметрами
+```
+wget -O my-values.yaml https://raw.githubusercontent.com/cockroachdb/helm-charts/master/cockroachdb/values.yaml
+```
+В файле с параметрами я поменял только размер PV на 20Gi
+```
+persistentVolume:
+    enabled: true
+
+    size: 20Gi
+```
+Разворачиваем наш кластер из Helm
+```
+helm install my-release --values my-values.yml cockroachdb/cockroachdb
+```
+деплоим в кластер Kubernetes клиента
+```
+curl -OOOOOOOOO https://raw.githubusercontent.com/cockroachdb/helm-charts/master/examples/client-secure.yaml
+```
+в файле client-secure.yaml меняем параметры
+```
+
+    spec.serviceAccountName: my-release-cockroachdb
+    spec.image: cockroachdb/cockroach:v23.1.11
+    spec.volumes[0].project.sources[0].secret.name: my-release-cockroachdb-client-secret
+
+```
+и далее
+```
+kubectl create -f client-secure.yaml
+```
+Результат деплоя
+![](pic/cockroach_kuber.png)
+
+Запускаем консоль cockroachdb
+```
+kubectl exec -it cockroachdb-client-secure -- ./cockroach sql --certs-dir=./cockroach-certs --host=my-release-cockroachdb-public
+```
+создаем таблицу
+```
+CREATE TABLE uk_price (
+    transaction_unique_identifier character(50),
+    price character varying(50),
+    date_of_transfer timestamp without time zone,
+    postcode character varying(10),
+    property_type character varying(10),
+    "Old/New" character varying(10),
+    duration character varying(10),
+    paon character varying(100),
+    saon character varying(50),
+    street character varying(100),
+    locality character varying(50),
+    "Town/City" character varying(50),
+    district character varying(50),
+    county character varying(50),
+    ppdcategory_type character varying(10),
+    record_status character varying(10)
+);
+```
+загружаем данные
+```
+root@my-release-cockroachdb-public:26257/defaultdb> IMPORT INTO uk_price CSV DATA (
+                                                 ->
+                                                 -> 'https://storage.yandexcloud.net/sparkbucket/202304.csv?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=YCAJEl-fX5x6Qzz51
+                                                 -> nfAktbOo%2F20231113%2Fru-central1%2Fs3%2Faws4_request&X-Amz-Date=20231113T052105Z&X-Amz-Expires=21600&X-Amz-Signature=9B2A5
+                                                 -> 18C74CAB914A3BBF5A826C685EEA3E164C1AFCE8D13593C093824E86CE4&X-Amz-SignedHeaders=host')
+                                                 ->                                                  WITH delimiter = ',';
+        job_id       |  status   | fraction_completed |   rows   | index_entries |   bytes
+---------------------+-----------+--------------------+----------+---------------+-------------
+  916791556537614337 | succeeded |                  1 | 28276228 |             0 | 4660762368
+(1 row)
+
+Time: 343.062s total (execution 343.062s / network 0.001s)
+```
+делаем select
+```
+root@my-release-cockroachdb-public:26257/defaultdb> select count(*) from  uk_price where property_type='S';
+   count
+-----------
+  7736105
+(1 row)
+
+Time: 30.216s total (execution 30.215s / network 0.000s)
+```
+время исполнения запроса 30сек
+Для PostgreSQL инстанса подобный запрос нанимал 210сек.
+CockroachDB в плане выборки конечно быстрее чем Postgres, но уступает Clickhouse на порядок, напомню что время исполнения этого же запроса в Clickhouse было 889ms
+</details>
+
+<details>
 <summary> <b>HW9. Deploy кластера Patroni в Kubernetes</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую из кластера Kubernetes  (2 ноды по 2 CPU,8Gb,50Gb).
 

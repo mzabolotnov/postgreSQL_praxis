@@ -1,5 +1,173 @@
 # postgres_praxis
 <details>
+<summary> <b>HW11. Деплой кластера YugabyteDB  в Menaged Service for Kubernetes Yandex Cloud. Деплой кластера Greenplum при помощи Ansible в Yandex Cloude</b></summary>
+
+Деплой кластера YugabyteDB  в Menaged Service for Kubernetes YC
+
+Поднимаем инфраструктуру в YC c помощью terraform состоящую кластера Kubernetes (3 ноды).
+
+```
+cd HW11/terraform_yugabyte;
+terraform apply;
+```
+Подключаемся к кластеру
+```
+ yc managed-kubernetes cluster  get-credentials $(yc managed-kubernetes cluster list | sed '4!d' | awk '{print $2}')   --external --force
+```
+Добавляем репозторий Helm
+```
+helm repo add yugabytedb https://charts.yugabyte.com
+helm repo update
+```
+Срздаем namespase yb-demo
+```
+kubectl create namespace yb-demo
+```
+разворачиваем наш Yugabyte-db кластер
+```
+helm install yb-demo yugabytedb/yugabyte --namespace yb-demo --wait
+``` 
+подключаемся к поду и скачиваем наш dataset для загрузки
+```
+kubectl exec --namespace yb-demo -it yb-tserver-0 bash
+```
+внутри пода вводим команду
+```
+# curl -o 202304.csv 'https://<link>/202304.csv
+```
+подключаемся к кластеру с помощью клиента ysqlsh
+```
+kubectl exec --namespace yb-demo -it yb-tserver-0 -- /home/yugabyte/bin/ysqlsh -h yb-tserver-0.yb-tservers.yb-demo
+```
+создаем таблицу
+```
+yugabyte=# CREATE TABLE public.uk_price (
+    transaction_unique_identifier character(50),
+    price character varying(50),
+    date_of_transfer timestamp without time zone,
+    postcode character varying(10),
+    property_type character varying(10),
+    "Old/New" character varying(10),
+    duration character varying(10),
+    paon character varying(100),
+    saon character varying(50),
+    street character varying(100),
+    locality character varying(50),
+    "Town/City" character varying(50),
+    district character varying(50),
+    county character varying(50),
+    ppdcategory_type character varying(10),
+    record_status character varying(10)
+);
+```
+загружаем данные
+```
+\COPY uk_price from '202304.csv' with CSV DELIMITER ','
+```
+и далее делаем выборку
+```
+yugabyte=# select count(*) from  uk_price where property_type='S';
+  count
+---------
+ 7736105
+(1 row)
+
+Time: 5404.447 ms (00:05.404)
+yugabyte=#
+```
+Т.е. наш результат 5404.447 ms
+
+Деплой кластера Greenplum при помощи Ansible в Yandex Cloude
+Поднимаем инфраструктуру в YC c помощью terraform состоящую из двух нод (Ubuntu 18.04,4core,16Гб).
+
+```
+cd HW11/terraform_greenplum
+terraform apply;
+```
+для простоты одну ноду выделим под master, другую под segment
+за основу берем репозиторий
+https://git.angara.cloud/gbgreenplum/greenplum.playbook.core
+клонируем
+```
+git clone https://git.angara.cloud/gbgreenplum/greenplum.playbook.core.git
+```
+Далее вводим команды
+```
+cd ./greenplum.playbook.core
+./switch_distr.bash ubuntu18.04
+```
+А вот далее, чтобы эта конструкция заработала, надо в папку greenplum.playbook.core положить файлик вида gp.tar.gz с дистрибутивом GreenPlum.
+А для этого проделываем следующее. Заходим по ssh на один из двух хостов и устанавливаем GreenPlumDB пакет, как это описано в мануале. https://greenplum.org/install-greenplum-oss-on-ubuntu/
+
+```
+sudo add-apt-repository ppa:greenplum/db
+sudo apt update
+sudo apt install greenplum-db-6
+```
+ну и далее заходим в папку с установленным пакетом
+```
+cd /opt/greenplum-db-<version>/
+```
+и архивируем содержимое в файл
+```
+tar cvzf gp.tar.gz ./*
+```
+с помощью scp переносим наш дистрибутив gp.tar.gz с удаленного хоста в нашу папку greenplum.playbook.core. Для чистоты эксперимента пакет greenplum-db-6 можно удалить. Но кластер GreenPlum не инициализирован, поэтому можно и не удалать.  
+
+далее запускаем поледовательно ansible-playbook c тегами
+
+```
+ansible-playbook playbook.yml --tags packages_install
+ansible-playbook playbook.yml --tags pre_install
+ansible-playbook playbook.yml --tags gp_install
+ansible-playbook playbook.yml --tags finalize
+```
+Все наш кластер GreenplumDB поднят.
+заходим на мастер-ноду запускаем консоль под пользователем dbadmin
+```
+su gpadmin
+```
+вводим наш пароль для пользователя gpadmin, который вводили при запуске playbook.yml
+Далее подключаемся к кластеру с помощью psql
+```
+psql -d gpdb
+```
+создаем БД
+```
+create database hw11
+```
+создаем таблицу uk_price
+грузим нащ dataset, после делаем наш стандартный запрос
+```
+gpadmin@gp-mstr:/data1/master$ psql -d hw11 -c "\COPY uk_price from '202304.csv' with CSV DELIMITER ','"
+COPY 28276228
+gpadmin@gp-mstr:/data1/master$ psql -d hw11
+psql (9.4.26)
+Type "help" for help.
+
+hw11=# select count(*) from uk_price;
+  count
+----------
+ 28276228
+(1 row)
+
+hw11=# \timing
+Timing is on.
+hw11=# select count(*) from  uk_price where property_type='S';
+  count
+---------
+ 7736105
+(1 row)
+
+Time: 4125.519 ms
+hw11=#
+```
+время запроса 4125.519 ms
+
+немного меньше чем YBDB, но примерно тоже самое.
+
+</details>
+<details>
 <summary> <b>HW10. Деплой кластера Cockroachdb  в Menaged Service for Kubernetes Yandex Cloud</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую кластера Kubernetes (3 ноды).
 

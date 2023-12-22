@@ -1,6 +1,163 @@
 # postgres_praxis
 <details>
-<summary> <b>HW11. Деплой кластера YugabyteDB  в Menaged Service for Kubernetes Yandex Cloud. Деплой кластера Greenplum при помощи Ansible в Yandex Cloude</b></summary>
+<summary> <b>HW12. Деплой HA кластера на базе Postgresql+Patroni+Citus  в Managed Service for Kubernetes Yandex Cloud. </b></summary>
+
+Поднимаем инфраструктуру в YC c помощью terraform состоящую кластера Kubernetes (3 ноды? имеющие каждая 16Gb memory, 4 CPU).
+
+```
+cd HW12/terraform_k8s;
+terraform apply;
+```
+Подключаемся к кластеру
+```
+ yc managed-kubernetes cluster  get-credentials $(yc managed-kubernetes cluster list | sed '4!d' | awk '{print $2}')   --external --force
+```
+Развернем кластер Patroni+Citus, используя репозиторий 
+```
+git clone git@github.com:zalando/patroni.git
+cd HW12/patroni/kuberbetes
+```
+Собираем docker-образ patromi+citus
+```
+docker build -f Dockerfile.citus -t mzabolotnov/patroni-citus-k8s:v1.0 .
+```
+и делам push в репозиторий для последующего использования в Yandex Cloud
+```
+docker push mzabolotnov/patroni-citus-k8s:v1.0
+``` 
+берем файлик citus_k8s.yaml и меняем наименование образа в нескольких месах на свой, только что собранный
+```- name: *cluster_name
+     image: mzabolotnov/patroni-citus-k8s:v1.0 
+```
+деплоим
+```
+kubectl apply -f citus_k8s.yaml
+```
+в итоге получаем
+```
+kubectl get pods -l cluster-name=citusdemo -L role
+NAME            READY   STATUS    RESTARTS   AGE   ROLE
+citusdemo-0-0   1/1     Running   0          46m   master
+citusdemo-0-1   1/1     Running   0          46m   replica
+citusdemo-0-2   1/1     Running   0          46m   replica
+citusdemo-1-0   1/1     Running   0          46m   master
+citusdemo-1-1   1/1     Running   0          46m   replica
+citusdemo-2-0   1/1     Running   0          46m   master
+citusdemo-2-1   1/1     Running   0          46m   replica
+```
+```
+kubectl exec -ti citusdemo-0-0 -- bash
+postgres@citusdemo-0-0:~$ patronictl list
++ Citus cluster: citusdemo ------------+--------------+-----------+----+-----------+
+| Group | Member        | Host         | Role         | State     | TL | Lag in MB |
++-------+---------------+--------------+--------------+-----------+----+-----------+
+|     0 | citusdemo-0-0 | 10.112.130.4 | Leader       | running   |  1 |           |
+|     0 | citusdemo-0-1 | 10.112.128.6 | Sync Standby | streaming |  1 |         0 |
+|     0 | citusdemo-0-2 | 10.112.129.7 | Replica      | streaming |  1 |         0 |
+|     1 | citusdemo-1-0 | 10.112.129.5 | Leader       | running   |  1 |           |
+|     1 | citusdemo-1-1 | 10.112.130.5 | Sync Standby | streaming |  1 |         0 |
+|     2 | citusdemo-2-0 | 10.112.128.5 | Leader       | running   |  1 |           |
+|     2 | citusdemo-2-1 | 10.112.129.6 | Sync Standby | streaming |  1 |         0 |
++-------+---------------+--------------+--------------+-----------+----+-----------+
+```
+```
+postgres@citusdemo-0-0:~$ psql citus
+psql (15.5 (Debian 15.5-1.pgdg120+1))
+Type "help" for help.
+
+citus=# CREATE TABLE public.uk_price (
+     transaction_unique_identifier UUID PRIMARY KEY,
+     price character varying(50),
+     date_of_transfer timestamp without time zone,
+     postcode character varying(10),
+     property_type character varying(10),
+     "Old/New" character varying(10),
+     duration character varying(10),
+     paon character varying(100),
+     saon character varying(50),
+     street character varying(100),
+     locality character varying(50),
+     "Town/City" character varying(50),
+     district character varying(50),
+     county character varying(50),
+     ppdcategory_type character varying(10),
+     record_status character varying(10)
+);
+CREATE TABLE
+citus=# SELECT create_distributed_table('public.uk_price', 'transaction_unique_identifier');
+ create_distributed_table
+--------------------------
+
+(1 row)
+```
+загружаем данные и делаем запрос
+```
+citus=# \timing
+Timing is on.
+citus=# \COPY uk_price from '202304.csv' with CSV DELIMITER ','
+COPY 28276228
+Time: 418442.863 ms (06:58.443)
+citus=# SELECT * from pg_dist_partition;
+ logicalrelid | partmethod |                                                          partkey                                                           | colocationid | repmodel | autoconverted
+--------------+------------+----------------------------------------------------------------------------------------------------------------------------+--------------+----------+---------------
+ uk_price     | h          | {VAR :varno 1 :varattno 1 :vartype 2950 :vartypmod -1 :varcollid 0 :varlevelsup 0 :varnosyn 1 :varattnosyn 1 :location -1} |            1 | s        | f
+(1 row)
+
+Time: 0.707 ms
+citus=# SELECT * from citus_shards;
+ table_name | shardid |   shard_name    | citus_table_type | colocation_id |   nodename   | nodeport | shard_size
+------------+---------+-----------------+------------------+---------------+--------------+----------+------------
+ uk_price   |  102008 | uk_price_102008 | distributed      |             1 | 10.112.128.5 |     5432 |  166068224
+ uk_price   |  102009 | uk_price_102009 | distributed      |             1 | 10.112.129.5 |     5432 |  166100992
+ uk_price   |  102010 | uk_price_102010 | distributed      |             1 | 10.112.128.5 |     5432 |  166289408
+ uk_price   |  102011 | uk_price_102011 | distributed      |             1 | 10.112.129.5 |     5432 |  166117376
+ uk_price   |  102012 | uk_price_102012 | distributed      |             1 | 10.112.128.5 |     5432 |  165658624
+ uk_price   |  102013 | uk_price_102013 | distributed      |             1 | 10.112.129.5 |     5432 |  166076416
+ uk_price   |  102014 | uk_price_102014 | distributed      |             1 | 10.112.128.5 |     5432 |  166838272
+ uk_price   |  102015 | uk_price_102015 | distributed      |             1 | 10.112.129.5 |     5432 |  166182912
+ uk_price   |  102016 | uk_price_102016 | distributed      |             1 | 10.112.128.5 |     5432 |  165724160
+ uk_price   |  102017 | uk_price_102017 | distributed      |             1 | 10.112.129.5 |     5432 |  165421056
+ uk_price   |  102018 | uk_price_102018 | distributed      |             1 | 10.112.128.5 |     5432 |  166051840
+ uk_price   |  102019 | uk_price_102019 | distributed      |             1 | 10.112.129.5 |     5432 |  164667392
+ uk_price   |  102020 | uk_price_102020 | distributed      |             1 | 10.112.128.5 |     5432 |  166084608
+ uk_price   |  102021 | uk_price_102021 | distributed      |             1 | 10.112.129.5 |     5432 |  166043648
+ uk_price   |  102022 | uk_price_102022 | distributed      |             1 | 10.112.128.5 |     5432 |  166035456
+ uk_price   |  102023 | uk_price_102023 | distributed      |             1 | 10.112.129.5 |     5432 |  166567936
+ uk_price   |  102024 | uk_price_102024 | distributed      |             1 | 10.112.128.5 |     5432 |  165953536
+ uk_price   |  102025 | uk_price_102025 | distributed      |             1 | 10.112.129.5 |     5432 |  165715968
+ uk_price   |  102026 | uk_price_102026 | distributed      |             1 | 10.112.128.5 |     5432 |  165502976
+ uk_price   |  102027 | uk_price_102027 | distributed      |             1 | 10.112.129.5 |     5432 |  166158336
+ uk_price   |  102028 | uk_price_102028 | distributed      |             1 | 10.112.128.5 |     5432 |  166723584
+ uk_price   |  102029 | uk_price_102029 | distributed      |             1 | 10.112.129.5 |     5432 |  165584896
+ uk_price   |  102030 | uk_price_102030 | distributed      |             1 | 10.112.128.5 |     5432 |  165675008
+ uk_price   |  102031 | uk_price_102031 | distributed      |             1 | 10.112.129.5 |     5432 |  166060032
+ uk_price   |  102032 | uk_price_102032 | distributed      |             1 | 10.112.128.5 |     5432 |  166060032
+ uk_price   |  102033 | uk_price_102033 | distributed      |             1 | 10.112.129.5 |     5432 |  165756928
+ uk_price   |  102034 | uk_price_102034 | distributed      |             1 | 10.112.128.5 |     5432 |  166182912
+ uk_price   |  102035 | uk_price_102035 | distributed      |             1 | 10.112.129.5 |     5432 |  165208064
+ uk_price   |  102036 | uk_price_102036 | distributed      |             1 | 10.112.128.5 |     5432 |  165830656
+ uk_price   |  102037 | uk_price_102037 | distributed      |             1 | 10.112.129.5 |     5432 |  165888000
+ uk_price   |  102038 | uk_price_102038 | distributed      |             1 | 10.112.128.5 |     5432 |  166682624
+ uk_price   |  102039 | uk_price_102039 | distributed      |             1 | 10.112.129.5 |     5432 |  166518784
+(32 rows)
+
+Time: 40.663 ms
+```
+делаем аналитический запрос
+```
+citus=# select count(*) from  uk_price where property_type='S';
+  count
+---------
+ 7736105
+(1 row)
+
+Time: 1133.090 ms (00:01.133)
+```
+
+
+</details>
+<details>
+<summary> <b>HW11. Деплой кластера YugabyteDB  в Managed Service for Kubernetes Yandex Cloud. Деплой кластера Greenplum при помощи Ansible в Yandex Cloude</b></summary>
 
 Деплой кластера YugabyteDB  в Menaged Service for Kubernetes YC
 

@@ -1,3 +1,8 @@
 sav/pg_install.yml
 HW6/ansible/inventory
 HW6/ansible/patroni_cluster/inventory
+HW13/terraform-yc-postgresql
+HW11/greenplum-for-kubernetes/
+HW11/greenplum.playbook.core/
+HW12/patroni/
+HW12/postgres-operator/

@@ -1,5 +1,84 @@
 # postgres_praxis
 <details>
+<summary> <b>HW13. Деплой и работа c PostgreSQL Service в Yandex Cloud. </b></summary>
+
+Для поднятия кластера PostgreSQL средствами Terraform будем использовать репозиторий
+```
+git clone git@github.com:terraform-yc-modules/terraform-yc-postgresql.git
+```
+За основу берем готовый пример из папки terraform-yc-postgresql/examples/2-multi-node.
+Модифицирем его. Создаем файл с параметрами terraform для нашего облака HW13/terraform_postgres_cluster/terraform.tfstate. К тому же нам будет нужна еще одна ВМ для postgresql-client-15, который будем использовать для подключения к нашему кластеру и загрузки данных.
+```
+cd HW13/terraform_postgres_cluster
+terraform init
+terraform apply
+```
+Далее устанавдиваем на нашу дополнтельную ВМ postgresql-client с использованием Ansible.
+```
+cd ../ansible
+ansible-playbook postgres_install.yml
+```
+файл HW13/ansible/inventory заполняется автоматически средствами Terraform
+Итак имеем развернутый кластер
+```
+yc managed-postgresql host list   --cluster-name one-two-tree
++-------------------------------------------+----------------------+---------+--------+---------------+-----------+-------------------------------------------+
+|                   NAME                    |      CLUSTER ID      |  ROLE   | HEALTH |    ZONE ID    | PUBLIC IP |            REPLICATION SOURCE             |
++-------------------------------------------+----------------------+---------+--------+---------------+-----------+-------------------------------------------+
+| rc1a-w6fh7kaslslk88ij.mdb.yandexcloud.net | c9q2bl3ga26ml3qv9tpg | MASTER  | ALIVE  | ru-central1-a | true      |                                           |
+| rc1b-ej3ku3oa9ytxs2oh.mdb.yandexcloud.net | c9q2bl3ga26ml3qv9tpg | REPLICA | ALIVE  | ru-central1-b | true      | rc1b-m3vb4iqiyr9y8bax.mdb.yandexcloud.net |
+| rc1b-m3vb4iqiyr9y8bax.mdb.yandexcloud.net | c9q2bl3ga26ml3qv9tpg | REPLICA | ALIVE  | ru-central1-b | true      |                                           |
++-------------------------------------------+----------------------+---------+--------+---------------+-----------+-------------------------------------------+
+```
+Меняем пароль созданого terraform пользователя через Web-консоль YC. Подключаемся к кластеру
+```
+psql 'host=c-c9q2bl3ga26ml3qv9tpg.rw.mdb.yandexcloud.net port=6432 sslmode=verify-full dbname=test1 user=test1 target_session_attrs=read-write'
+```
+Далее все по стандартной схеме. Создаем даблицу и грузим туда наш датасет uk_price
+```
+CREATE UNLOGGED TABLE public.uk_price (
+    transaction_unique_identifier character(50),
+    price character varying(50),
+    date_of_transfer timestamp without time zone,
+    postcode character varying(10),
+    property_type character varying(10),
+    "Old/New" character varying(10),
+    duration character varying(10),
+    paon character varying(100),
+    saon character varying(50),
+    street character varying(100),
+    locality character varying(50),
+    "Town/City" character varying(50),
+    district character varying(50),
+    county character varying(50),
+    ppdcategory_type character varying(10),
+    record_status character varying(10)
+);
+```
+```
+psql 'host=c-c9q2bl3ga26ml3qv9tpg.rw.mdb.yandexcloud.net port=6432 sslmode=verify-full dbname=test1 user=test1 target_session_attrs=read-write' -c "\COPY uk_price from '202304.csv' with CSV DELIMITER ','"
+```
+далее включаем логгирование для таблицы, чтоб данные появились на репликах
+
+```
+alter table uk_price set logged;
+```
+После окончания процесса подключаемся к любой реплике и делаем select
+```
+test1=> \timing
+Timing is on.
+test1=> select count(*) from  uk_price where property_type='S';
+  count
+---------
+ 7736105
+(1 row)
+
+Time: 5917.716 ms (00:05.918)
+test1=>
+```
+
+</details>
+<details>
 <summary> <b>HW12. Деплой HA кластера на базе Postgresql+Patroni+Citus  в Managed Service for Kubernetes Yandex Cloud. </b></summary>
 
 Поднимаем инфраструктуру в YC c помощью terraform состоящую кластера Kubernetes (3 ноды? имеющие каждая 16Gb memory, 4 CPU).

@@ -1,6 +1,6 @@
 # postgres_praxis
 <details>
-<summary> <b>HW13. Деплой и работа c PostgreSQL Service в Yandex Cloud. </b></summary>
+<summary> <b>13. Деплой и работа c PostgreSQL Service в Yandex Cloud. </b></summary>
 
 Для поднятия кластера PostgreSQL средствами Terraform будем использовать репозиторий
 ```
@@ -79,7 +79,7 @@ test1=>
 
 </details>
 <details>
-<summary> <b>HW12. Деплой HA кластера на базе Postgresql+Patroni+Citus  в Managed Service for Kubernetes Yandex Cloud. </b></summary>
+<summary> <b>12. Деплой HA кластера на базе Postgresql+Patroni+Citus  в Managed Service for Kubernetes Yandex Cloud. </b></summary>
 
 Поднимаем инфраструктуру в YC c помощью terraform состоящую кластера Kubernetes (3 ноды? имеющие каждая 16Gb memory, 4 CPU).
 
@@ -236,7 +236,7 @@ Time: 1133.090 ms (00:01.133)
 
 </details>
 <details>
-<summary> <b>HW11. Деплой кластера YugabyteDB  в Managed Service for Kubernetes Yandex Cloud. Деплой кластера Greenplum при помощи Ansible в Yandex Cloude</b></summary>
+<summary> <b>11. Деплой кластера YugabyteDB  в Managed Service for Kubernetes Yandex Cloud. Деплой кластера Greenplum при помощи Ansible в Yandex Cloude</b></summary>
 
 Деплой кластера YugabyteDB  в Menaged Service for Kubernetes YC
 
@@ -404,7 +404,7 @@ hw11=#
 
 </details>
 <details>
-<summary> <b>HW10. Деплой кластера Cockroachdb  в Menaged Service for Kubernetes Yandex Cloud</b></summary>
+<summary> <b>10. Деплой кластера Cockroachdb  в Menaged Service for Kubernetes Yandex Cloud</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую кластера Kubernetes (3 ноды).
 
 ```
@@ -510,7 +510,7 @@ CockroachDB в плане выборки конечно быстрее чем Po
 </details>
 
 <details>
-<summary> <b>HW9. Deploy кластера Patroni в Kubernetes</b></summary>
+<summary> <b>9. Deploy кластера Patroni в Kubernetes</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую из кластера Kubernetes  (2 ноды по 2 CPU,8Gb,50Gb).
 
 ```
@@ -587,7 +587,7 @@ ERROR:  cannot execute CREATE TABLE in a read-only transaction
 Кластер работает.
 </details>
 <details>
-<summary> <b>HW8. Работа с большим объемом реальных данных</b></summary>
+<summary> <b>8. Работа с большим объемом реальных данных</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую двух узлов. ВМ(2 CPU,4Gb,150Gb(disk)).  
 Одна из которых будут использоваться для поднятия кластера Postgresql], другая - для ClickHouse.
 
@@ -701,7 +701,7 @@ Query id: 5a4677fe-fa9a-4ffe-9721-fbc5c3d06264
 
 </details>
 <details>
-<summary> <b>HW7. Разворачиваем кластер Postgresql в minikube</b></summary>
+<summary> <b>7. Разворачиваем кластер Postgresql в minikube</b></summary>
 
 Скачиваем репозиторий
 ```
@@ -718,7 +718,7 @@ cd postgres-operator
 
 </details>
 <details>
-<summary> <b>HW6. Деплой кластера Patroni в Yandex Cloud с использованием Ansible</b></summary>
+<summary> <b>6. Деплой кластера Patroni в Yandex Cloud с использованием Ansible</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform состоящую четырех узлов. ВМ(2 CPU,4Gb,10Gb(disk)).
 Три из которых будут использоваться для поднятия кластера Patroni, etcd-кластера и HAProxy. Одна ВМ используется для разворачивания на ней Ansible. Также поднимается Load Balancer с целевой группой хостов, которыми являются ноды с HAProxy, в нашем случае это ноды Patroni-кластера. Инфраструктура подобна приведенной здесь https://github.com/vitabaks/postgresql_cluster/blob/master/images/TypeA.png, только VIP заменяем IP Load Balancer
 
@@ -781,7 +781,7 @@ ubuntu@pgnode01:~$ sudo patronictl -c /etc/patroni/patroni.yml list
 
 </details>
 <details>
-<summary> <b>HW5. Бэкапы PostgreSQL, использование утилиты WAL-G</b></summary>
+<summary> <b>5. Бэкапы PostgreSQL, использование утилиты WAL-G</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform в одной ВМ(2 CPU,4Gb,30Gb(disk)). Ставим PostgreSQL на ВМ с использованием Ansible.
 
 ```
@@ -921,7 +921,7 @@ psql -p 5433 hw1 -c "select * from test;"
 </details>
 
 <details>
-<summary> <b>HW4. Оптимизация PostgreSQL</b></summary>
+<summary> <b>4. Оптимизация PostgreSQL</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform в одной ВМ(2 CPU,4Gb). Ставим PostgreSQL на ВМ с использованием Ansible.
 
 ```
@@ -984,7 +984,7 @@ tps = 1904.349851 (without initial connection time)
 Настройки PostgreSQL оптимальны под данный стандартный тест.
 </details>
 <details>
-<summary> <b>HW3. Деплой Postgresql сервера в Docker</b></summary>
+<summary> <b>3. Деплой Postgresql сервера в Docker</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform, состоящую из одного узла (2 CPU,4Gb,10Gb).  
 
 ```
@@ -1008,7 +1008,7 @@ ansible-playbook docker_install_run_postgres.yml -v
 </details>
 
 <details>
-<summary> <b>HW2</b></summary>
+<summary> <b>2. Перенос БД PostgreSQL с одного сервера на другой</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform в составе двух ВМ. Ставим PostgreSQL на ВМ с использованием Ansible.
 Файл HW2/ansible/inventory заполняется автоматически данными из terraform. PostgreSQL - устанавливается на обе виртуальные машины pg-1 и pg-2
 
@@ -1047,7 +1047,7 @@ ansible-playbook start_db_postgresql_to_pg2.yml
 ```
 </details>
 <details>
-<summary> <b>HW1</b></summary>
+<summary> <b>1. Уровни изоляции PostgreSQL</b></summary>
 Поднимаем инфраструктуру в YC c помощью terraform в составе одной ВМ. Ставим PostgreSQL на ВМ с использованием Ansible.  
 ```
 cd HW1/terraform;  
